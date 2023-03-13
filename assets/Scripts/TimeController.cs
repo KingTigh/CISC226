@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using GearFactory;
 
 public class TimeController : MonoBehaviour
 {   
@@ -21,11 +22,13 @@ public class TimeController : MonoBehaviour
     bool wasRewinding = false;
 
     TimeControlled[] timeObjects;
+    GearBase[] timeGears;
     
-
+    private JointMotor2D hjm;
 
     private void Awake() 
     {
+        timeGears = GameObject.FindObjectsOfType<GearBase>();
         timeObjects = GameObject.FindObjectsOfType<TimeControlled>();
         recordedData = new RecordedData[timeObjects.Length,recordMax];
 
@@ -61,6 +64,23 @@ public class TimeController : MonoBehaviour
         
                     timeObject.updateAnimation();
                 }
+                for (int objectIndex = 0; objectIndex < timeGears.Length; objectIndex++)
+                {
+                    GearBase timeGear = timeGears[objectIndex];
+                    hjm = timeGear.GetComponent<HingeJoint2D>().motor;
+                    hjm.motorSpeed = -1 * timeGear.GetComponent<Gear>().speed;
+                    timeGear.GetComponent<HingeJoint2D>().motor = hjm;
+                }
+            }
+        }
+        else if (pause && !fforward && !rewind)
+        {
+            for (int objectIndex = 0; objectIndex < timeGears.Length; objectIndex++)
+            {
+                GearBase timeGear = timeGears[objectIndex];
+                hjm = timeGear.GetComponent<HingeJoint2D>().motor;
+                hjm.motorSpeed = 0;
+                timeGear.GetComponent<HingeJoint2D>().motor = hjm;
             }
         }
         else if (pause && fforward) 
@@ -80,6 +100,13 @@ public class TimeController : MonoBehaviour
                     timeObject.animationTime = data.animationTime;
 
                     timeObject.updateAnimation();
+                }
+                for (int objectIndex = 0; objectIndex < timeGears.Length; objectIndex++)
+                {
+                    GearBase timeGear = timeGears[objectIndex];
+                    hjm = timeGear.GetComponent<HingeJoint2D>().motor;
+                    hjm.motorSpeed = timeGear.GetComponent<Gear>().speed;
+                    timeGear.GetComponent<HingeJoint2D>().motor = hjm;
                 }
             }
         }
@@ -101,6 +128,14 @@ public class TimeController : MonoBehaviour
                 recordedData[objectIndex, recordCount] = data;
                 timeObject.speedMultiplier = 3;
             }
+            for (int objectIndex = 0; objectIndex < timeGears.Length; objectIndex++)
+            {
+                GearBase timeGear = timeGears[objectIndex];
+                hjm = timeGear.GetComponent<HingeJoint2D>().motor;
+                hjm.motorSpeed = 3 * timeGear.GetComponent<Gear>().speed;
+                timeGear.GetComponent<HingeJoint2D>().motor = hjm;
+            }
+
             recordCount++;
             recordIndex = recordCount; 
 
@@ -128,6 +163,14 @@ public class TimeController : MonoBehaviour
                 recordedData[objectIndex, recordCount] = data;
                 timeObject.speedMultiplier = 1;
             }
+            for (int objectIndex = 0; objectIndex < timeGears.Length; objectIndex++)
+            {
+                GearBase timeGear = timeGears[objectIndex];
+                hjm = timeGear.GetComponent<HingeJoint2D>().motor;
+                hjm.motorSpeed = timeGear.GetComponent<Gear>().speed;
+                timeGear.GetComponent<HingeJoint2D>().motor = hjm;
+            }
+
             recordCount++;
             recordIndex = recordCount; 
 

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using GearFactory;
 
 
 public class NewBehaviourScript : TimeControlled
@@ -9,6 +10,9 @@ public class NewBehaviourScript : TimeControlled
     private float jumpVelocity = 30;
     private float moveSpeed = 2;
     private float dashForce = 5;
+    private float direction = 1;
+    public float horMomentum = 0; 
+    private float vertMomentum = 0;
 
     public bool floating;
     private bool hasKey;
@@ -49,17 +53,13 @@ public class NewBehaviourScript : TimeControlled
 
         pos.y += velocity.y * Time.deltaTime;
         velocity.y += TimeController.gravity * Time.deltaTime;
-        if (facingR)
-        {
-        pos.x += velocity.x * speedMultiplier * Time.deltaTime;
-        }
-        if (!facingR)
-        {
-            pos.x -= velocity.x * speedMultiplier * Time.deltaTime;
-        }
-        if (velocity.x > 0){velocity.x -= 3 * Time.deltaTime;}
-        
+        pos.x += (velocity.x + horMomentum) * speedMultiplier * Time.deltaTime * direction;
 
+        if (velocity.x > 0){velocity.x -= 3 * Time.deltaTime;}        
+        if (velocity.x < 0){velocity.x = 0;}
+
+        if (horMomentum > 0){horMomentum -= 3 * Time.deltaTime;}
+        if (horMomentum < 0){horMomentum = 0;}
         
         if (pos.y < 1)
         {
@@ -75,6 +75,7 @@ public class NewBehaviourScript : TimeControlled
         }
         if (Input.GetKey(KeyCode.A))
         {   
+            direction = -1;
             if (facingR)
             {
                 facingR = false;
@@ -85,36 +86,24 @@ public class NewBehaviourScript : TimeControlled
         }
         if (Input.GetKey(KeyCode.D))
         {
+            direction = 1; 
             if (!facingR)
             {
                 facingR = true;
-                spi.flipX = false;    
+                spi.flipX = false;  
             }
             velocity.x = moveSpeed;
             pos.x += moveSpeed * Time.deltaTime;
         }
-        if (Input.GetKeyDown(KeyCode.Space) && facingR && dashReady)
+        if (Input.GetKeyDown(KeyCode.Space) && dashReady)
         {
-            pos.x += dashForce;
+            pos.x += dashForce * direction;
             dashReady = false;
         }
-        if (Input.GetKeyDown(KeyCode.Space) && !facingR && dashReady)
-        {
-            pos.x -= dashForce;
-            dashReady = false;
-        }
-        // if (velocity.x > 1 && !floating)
-        // {
-        //     currentAnimation = walkingAnimation;
-        // }
+
         if (!Input.anyKey){
             currentAnimation = idleAnimation;
         }
-        // if (floating) 
-        // {
-        //     currentAnimation = flyingAnimation;
-        // }
-
         transform.position = pos;
 
         
@@ -122,13 +111,36 @@ public class NewBehaviourScript : TimeControlled
     // Triggers
     private void OnTriggerEnter2D(Collider2D other) {
 
+        if (other.gameObject.tag == "Floor")
+        {
+                floating = false;
+                dashReady = true;
+                jumpReady = true; 
+                TimeController.gravity = 0;
+                currentAnimation = walkingAnimation;
+                velocity.y = 0;
+                transform.parent = null;
+                if (velocity.x > 0){ currentAnimation = walkingAnimation;}
+                else{ currentAnimation = idleAnimation;}
+        }
         if (other.gameObject.tag == "Key")
         {
             hasKey = true; 
             Destroy(other.gameObject);
             
         }
-            else
+        else if (other.gameObject.tag == "Gear")
+        {
+            floating = false;
+            dashReady = true;
+            jumpReady = true; 
+            velocity.y = 0;
+            velocity.x = other.gameObject.GetComponent<Gear>().speed / 32;
+            TimeController.gravity = 0;
+            currentAnimation = walkingAnimation;
+        }
+            
+        else
             {
                 floating = false;
                 dashReady = true;
@@ -148,28 +160,59 @@ public class NewBehaviourScript : TimeControlled
                 {
                     transform.parent = other.transform;
                 }
-                // else{velocity.x = 0;}
             }
         
     }
     private void OnTriggerStay2D(Collider2D other) {
-        floating = false;
-        dashReady = true;
-        jumpReady = true;
-        
-        if (velocity.x > 0){ currentAnimation = walkingAnimation;}
-        else{ currentAnimation = idleAnimation;}
-
-        if (other.gameObject.tag == "MovingPlatform")
+        if (other.gameObject.tag == "Floor")
         {
-            transform.parent = other.transform;
+            floating = false;
+            dashReady = true;
+            jumpReady = true;
+            transform.parent = null;
+            if (velocity.x > 0){ currentAnimation = walkingAnimation;}
+            else{ currentAnimation = idleAnimation;}
         }
+
+        else if (other.gameObject.tag == "MovingPlatform")
+        {
+            floating = false;
+            dashReady = true;
+            jumpReady = true;
+            transform.parent = other.transform;
+            if (velocity.x > 0){ currentAnimation = walkingAnimation;}
+            else{ currentAnimation = idleAnimation;}
+        }
+        else if (other.gameObject.tag == "Gear")
+        {
+            floating = false;
+            dashReady = true;
+            jumpReady = true; 
+            velocity.x = other.gameObject.GetComponent<Gear>().speed / 32;
+            TimeController.gravity = 0;
+            currentAnimation = walkingAnimation;
+        }
+
     }
     private void OnTriggerExit2D(Collider2D other) {
 
+        transform.parent = null;
         if (other.gameObject.tag == "Key")
         {
 
+        }
+        if (other.gameObject.tag == "Gear")
+        {
+            jumpReady = false; 
+            TimeController.gravity = -100;
+            floating = true;
+            currentAnimation = flyingAnimation;
+            rb2d.constraints = RigidbodyConstraints2D.FreezePosition;
+            rb2d.constraints = RigidbodyConstraints2D.None;
+            rb2d.constraints = RigidbodyConstraints2D.FreezeRotation;
+            velocity.x += other.GetComponent<Gear>().speed /32;
+            velocity.y += other.GetComponent<Gear>().speed /32;
+            
         }
         else
         {
@@ -177,17 +220,17 @@ public class NewBehaviourScript : TimeControlled
             TimeController.gravity = -100;
             floating = true;
             currentAnimation = flyingAnimation;
-            transform.parent = null;
             
             if (other.gameObject.tag == "MovingPlatform")
             {
-                if (other.transform.TryGetComponent(out MovingPlatformScript MPvelocity))
-                {
-                    velocity.x += MPvelocity.velocity.x * MPvelocity.direction * 2;
+                if (other.transform.TryGetComponent(out MovingPlatformScript MP))
+                {   
+                    direction = MP.direction;
+                    horMomentum = MP.velocity.x * MP.direction * 2;
                 }
-                else if (other.transform.TryGetComponent(out VMovingPlatformScript MPvelocityV))
+                else if (other.transform.TryGetComponent(out VMovingPlatformScript MPV))
                 {
-                    velocity.y += MPvelocityV.velocity.y *MPvelocityV.direction*2;
+                    velocity.y += MPV.velocity.y *MPV.direction*2;
                 }
             }
        
